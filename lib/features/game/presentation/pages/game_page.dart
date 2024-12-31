@@ -196,10 +196,6 @@ class _GameSettingsDialogState extends State<GameSettingsDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Отмена'),
-        ),
-        TextButton(
           onPressed: () {
             context.read<GameBloc>().add(
               StartGame(

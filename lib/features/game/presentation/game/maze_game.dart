@@ -153,8 +153,8 @@ class VisibilityMask extends PositionComponent with HasGameRef {
        _finishRadius = finishRadius,
        super(size: size) {
     _maskPaint = Paint()
-      ..color = const Color(0xFF000000)
-      ..blendMode = BlendMode.dstOut;
+      ..color = const Color(0x00000000) // Прозрачный цвет для "дырки"
+      ..blendMode = BlendMode.srcOver;
     _finishPaint = Paint()
       ..color = const Color(0xFF00FF00)
       ..blendMode = BlendMode.srcOver;
@@ -167,27 +167,42 @@ class VisibilityMask extends PositionComponent with HasGameRef {
 
   @override
   void render(Canvas canvas) {
-    // Сначала рисуем маску видимости
-    canvas.saveLayer(Rect.fromLTWH(0, 0, size.x, size.y), Paint());
+    // Сохраняем текущее состояние canvas
+    canvas.save();
     
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.x, size.y),
-      Paint()..color = const Color(0xFF000000),
+    // Ограничиваем область рисования размером лабиринта
+    canvas.clipRect(Rect.fromLTWH(0, 0, size.x, size.y));
+
+    final path = Path()
+      ..addRect(Rect.fromLTWH(0, 0, size.x, size.y));
+    
+    // Вырезаем круг для видимой области
+    path.addOval(
+      Rect.fromCircle(
+        center: Offset(_holePosition.x, _holePosition.y),
+        radius: radius,
+      ),
+    );
+    
+    // Используем evenOdd для создания "дырки"
+    path.fillType = PathFillType.evenOdd;
+    
+    // Рисуем затемнение
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = const Color(0xFF000000)
+        ..style = PaintingStyle.fill,
     );
 
-    canvas.drawCircle(
-      Offset(_holePosition.x, _holePosition.y),
-      radius,
-      _maskPaint,
-    );
-
-    canvas.restore();
-
-    // Затем рисуем финишную точку поверх всего
+    // Рисуем финишную точку
     canvas.drawCircle(
       Offset(_finishPosition.x, _finishPosition.y),
       _finishRadius,
       _finishPaint,
     );
+
+    // Восстанавливаем состояние canvas
+    canvas.restore();
   }
 }
