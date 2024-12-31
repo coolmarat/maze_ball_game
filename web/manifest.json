@@ -1,11 +1,11 @@
 {
-    "name": "maze_ball_game",
-    "short_name": "maze_ball_game",
+    "name": "Лабиринт",
+    "short_name": "Лабиринт",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Игра-лабиринт на Flutter",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
