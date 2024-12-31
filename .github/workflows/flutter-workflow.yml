@@ -23,7 +23,7 @@ jobs:
         run: flutter config --enable-web
         
       - name: Build web
-        run: flutter build web --release --base-href "/maze_ball_game/"
+        run: flutter build web --release --base-href "/maze_ball_game/" --web-renderer html
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
