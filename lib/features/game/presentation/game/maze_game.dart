@@ -88,6 +88,16 @@ class MazeGame extends FlameGame {
     );
     await _world.add(_player);
 
+    // Add finish point
+    final finishPoint = CircleComponent(
+      radius: _cellSize * 0.4,
+      anchor: Anchor.center,
+      paint: Paint()..color = const Color(0xFF00FF00),
+      position: _getCellCenter(maze.end.x.toDouble(), maze.end.y.toDouble()),
+      priority: 2,
+    );
+    await _world.add(finishPoint);
+
     if (settings.limitedVisibility) {
       _visibilityMask = VisibilityMask(
         position: _getCellCenter(_playerPosition.x.toDouble(), _playerPosition.y.toDouble()),
