@@ -15,10 +15,13 @@ jobs:
         with:
           flutter-version: '3.16.0'
           channel: 'stable'
+          cache: true
       
       - name: Get dependencies
-        run: flutter pub get
-
+        run: |
+          flutter pub get
+          flutter --disable-analytics
+      
       - name: Enable web
         run: flutter config --enable-web
         
