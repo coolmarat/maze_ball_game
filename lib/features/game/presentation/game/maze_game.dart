@@ -1,4 +1,3 @@
-import 'dart:ui' as ui;
 import 'dart:ui';
 import 'package:flame/game.dart';
 import 'package:flame/components.dart';
@@ -9,28 +8,38 @@ class MazeGame extends FlameGame {
   final Maze maze;
   Position _playerPosition;
   final GameSettings settings;
+  final double availableWidth;
+  final double availableHeight;
   late final World _world;
   late final CameraComponent _camera;
   late final CircleComponent _player;
   VisibilityMask? _visibilityMask;
+  late final double _cellSize;
 
   MazeGame({
     required this.maze,
     required Position playerPosition,
     required this.settings,
-  }) : _playerPosition = playerPosition;
+    required this.availableWidth,
+    required this.availableHeight,
+  }) : _playerPosition = playerPosition {
+    final horizontalCellSize = availableWidth / maze.width;
+    final verticalCellSize = availableHeight / maze.height;
+    _cellSize = horizontalCellSize < verticalCellSize ? horizontalCellSize : verticalCellSize;
+  }
+
+  Vector2 _getCellCenter(double x, double y) {
+    return Vector2(
+      (x + 0.5) * _cellSize,
+      (y + 0.5) * _cellSize,
+    );
+  }
 
   void updatePlayerPosition(Position newPosition) {
     _playerPosition = newPosition;
-    _player.position = Vector2(
-      newPosition.x.toDouble() + 0.6 - 0.4,
-      newPosition.y.toDouble() + 0.6 - 0.4,
-    );
+    _player.position = _getCellCenter(newPosition.x.toDouble(), newPosition.y.toDouble());
     if (_visibilityMask != null) {
-      _visibilityMask!.updatePosition(Vector2(
-        newPosition.x.toDouble() + 0.5,
-        newPosition.y.toDouble() + 0.5,
-      ));
+      _visibilityMask!.updatePosition(_getCellCenter(newPosition.x.toDouble(), newPosition.y.toDouble()));
     }
   }
 
@@ -44,8 +53,9 @@ class MazeGame extends FlameGame {
     // Add white background
     final background = RectangleComponent(
       position: Vector2.zero(),
-      size: Vector2(maze.width.toDouble(), maze.height.toDouble()),
+      size: Vector2(maze.width * _cellSize, maze.height * _cellSize),
       paint: Paint()..color = const Color(0xFFFFFFFF),
+      priority: 0,
     );
     await _world.add(background);
 
@@ -70,74 +80,76 @@ class MazeGame extends FlameGame {
 
     // Add player
     _player = CircleComponent(
-      radius: 0.4,
+      radius: _cellSize * 0.4,
+      anchor: Anchor.center,
       paint: Paint()..color = const Color(0xFF0000FF),
-      position: Vector2(
-        _playerPosition.x.toDouble() + 0.5 - 0.4,
-        _playerPosition.y.toDouble() + 0.5 - 0.4,
-      ),
+      position: _getCellCenter(_playerPosition.x.toDouble(), _playerPosition.y.toDouble()),
+      priority: 3,
     );
     await _world.add(_player);
 
-    // Add visibility mask if needed
     if (settings.limitedVisibility) {
       _visibilityMask = VisibilityMask(
-        position: Vector2(
-          _playerPosition.x.toDouble() + 0.5,
-          _playerPosition.y.toDouble() + 0.5,
-        ),
-        size: Vector2(maze.width.toDouble(), maze.height.toDouble()),
-        radius: settings.visibilityRadius.toDouble(),
+        position: _getCellCenter(_playerPosition.x.toDouble(), _playerPosition.y.toDouble()),
+        size: Vector2(maze.width * _cellSize, maze.height * _cellSize),
+        radius: settings.visibilityRadius * _cellSize,
+        finishPosition: _getCellCenter(maze.end.x.toDouble(), maze.end.y.toDouble()),
+        finishRadius: _cellSize * 0.4,
       );
       await _world.add(_visibilityMask!);
     }
 
-    // Add finish point (always visible)
-    final finish = CircleComponent(
-      radius: 0.4,
-      paint: Paint()..color = const Color(0xFF00FF00),
-      position: Vector2(
-        maze.end.x.toDouble() + 0.5 - 0.4,
-        maze.end.y.toDouble() + 0.5 - 0.4,
-      ),
-    );
-    await _world.add(finish);
-
     // Set up camera
-    _camera.viewfinder.zoom = 25.0;
+    _camera.viewfinder.zoom = 1.0;
     _camera.viewfinder.position = Vector2(
-      maze.width.toDouble() / 2,
-      maze.height.toDouble() / 2,
+      maze.width * _cellSize / 2,
+      maze.height * _cellSize / 2,
     );
   }
 
   Future<void> _addWall(double x, double y, bool horizontal) async {
     final wall = RectangleComponent(
-      position: Vector2(x, y),
-      size: Vector2(
-        horizontal ? 1.0 : 0.15,
-        horizontal ? 0.15 : 1.0,
+      position: Vector2(
+        x * _cellSize,
+        y * _cellSize,
       ),
-      paint: Paint()
-        ..color = const Color(0xFF000000)
-        ..style = PaintingStyle.fill,
+      size: Vector2(
+        horizontal ? _cellSize : _cellSize * 0.1,
+        horizontal ? _cellSize * 0.1 : _cellSize,
+      ),
+      paint: Paint()..color = const Color(0xFF000000),
+      priority: 1,
     );
     await _world.add(wall);
   }
 }
 
-class VisibilityMask extends PositionComponent {
+class VisibilityMask extends PositionComponent with HasGameRef {
   final Vector2 _holePosition;
   final double radius;
-  final Paint _paint;
+  final Vector2 _finishPosition;
+  final double _finishRadius;
+  late final Paint _maskPaint;
+  late final Paint _finishPaint;
 
   VisibilityMask({
     required Vector2 position,
     required Vector2 size,
     required this.radius,
+    required Vector2 finishPosition,
+    required double finishRadius,
   }) : _holePosition = position.clone(),
-       _paint = Paint()..color = const Color(0xFFFFFFFF),
-       super(size: size);
+       _finishPosition = finishPosition.clone(),
+       _finishRadius = finishRadius,
+       super(size: size) {
+    _maskPaint = Paint()
+      ..color = const Color(0xFF000000)
+      ..blendMode = BlendMode.dstOut;
+    _finishPaint = Paint()
+      ..color = const Color(0xFF00FF00)
+      ..blendMode = BlendMode.srcOver;
+    priority = 100;
+  }
 
   void updatePosition(Vector2 newPosition) {
     _holePosition.setFrom(newPosition);
@@ -145,26 +157,27 @@ class VisibilityMask extends PositionComponent {
 
   @override
   void render(Canvas canvas) {
-    canvas.saveLayer(
-      Rect.fromLTWH(0, 0, size.x, size.y),
-      Paint()..blendMode = BlendMode.dstOut,
-    );
+    // Сначала рисуем маску видимости
+    canvas.saveLayer(Rect.fromLTWH(0, 0, size.x, size.y), Paint());
     
-    // Draw white background
     canvas.drawRect(
       Rect.fromLTWH(0, 0, size.x, size.y),
-      _paint,
+      Paint()..color = const Color(0xFF000000),
     );
 
-    // Create circular hole
     canvas.drawCircle(
       Offset(_holePosition.x, _holePosition.y),
       radius,
-      Paint()
-        ..color = const Color(0xFF000000)
-        ..blendMode = BlendMode.clear,
+      _maskPaint,
     );
 
     canvas.restore();
+
+    // Затем рисуем финишную точку поверх всего
+    canvas.drawCircle(
+      Offset(_finishPosition.x, _finishPosition.y),
+      _finishRadius,
+      _finishPaint,
+    );
   }
 }

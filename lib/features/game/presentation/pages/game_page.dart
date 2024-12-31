@@ -57,22 +57,50 @@ class GamePage extends StatelessWidget {
             );
           }
           
-          return BlocListener<GameBloc, GameState>(
-            listenWhen: (previous, current) => 
-              !previous.isGameComplete && current.isGameComplete,
-            listener: (context, state) {
-              if (state.isGameComplete) {
-                _showCompletionDialog(context, state.elapsedTime!);
-              }
-            },
-            child: Column(
-              children: [
-                const Expanded(
-                  child: GameBoard(),
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final gameHeight = constraints.maxHeight - 200;
+              final gameSize = gameHeight < constraints.maxWidth ? gameHeight : constraints.maxWidth;
+              
+              return BlocListener<GameBloc, GameState>(
+                listenWhen: (previous, current) => 
+                  !previous.isGameComplete && current.isGameComplete,
+                listener: (context, state) {
+                  if (state.isGameComplete) {
+                    _showCompletionDialog(context, state.elapsedTime!);
+                  }
+                },
+                child: Column(
+                  children: [
+                    const Spacer(),
+                    Center(
+                      child: SizedBox(
+                        width: gameSize,
+                        height: gameSize,
+                        child: BlocBuilder<GameBloc, GameState>(
+                          buildWhen: (previous, current) =>
+                            previous.maze != current.maze ||
+                            previous.playerPosition != current.playerPosition ||
+                            previous.settings != current.settings,
+                          builder: (context, state) {
+                            if (state.maze == null) return const SizedBox();
+                            return GameBoard(
+                              availableWidth: gameSize,
+                              availableHeight: gameSize,
+                              maze: state.maze!,
+                              playerPosition: state.playerPosition!,
+                              settings: state.settings!,
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    const GameControls(),
+                  ],
                 ),
-                const GameControls(),
-              ],
-            ),
+              );
+            },
           );
         },
       ),
